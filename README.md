@@ -1,7 +1,7 @@
 
 # Project Management
 
-###Setup the project:
+### Setup the project:
  - Create a virtual environment:
  
  `virtualenv --python=/usr/bin/python3.6 env`

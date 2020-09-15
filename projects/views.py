@@ -1,10 +1,13 @@
 from datetime import datetime
+# from pytz import timezone
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import authenticate, login, logout
+from django.db.models import Sum
 from django.utils.decorators import method_decorator
 from django.shortcuts import render, HttpResponse
 from django.views import View
 from django.views.generic import ListView
+from django.utils import timezone
 from .forms import ProjectForm, EmployeeRegisterationForm
 from .models import Project, Employee
 # Create your views here.
@@ -97,12 +100,24 @@ class AssignProject(View):
         return render(request, 'projects/index.html', context)
 
     def post(self, request, **kwargs):
+        '''
+        Method will assign the projects to the
+        role according to validation.
+        Dev - can work on one project or free
+        Team Lead - can work on two project or free
+        Project Manager - can work on three project or free
+        '''
+        # get the employee
         emp = Employee.objects.get(id=kwargs.get('pk'))
+        # get the requested projects
         project_req = request.POST.getlist('assign_project')
         projects = Project.objects.filter(name__in=project_req)
+        # employee's current projects
         working_proj = Project.objects.filter(employee=emp)
         context = {'employees': Employee.objects.filter(is_active=True)}
+        # if employee is developer
         if emp.designation == 'DEVELOPER':
+            # validation
             if working_proj.count() < 1 and len(project_req) == 1 - working_proj.count():
                 for proj in projects:
                     emp.projects.add(proj)
@@ -112,7 +127,9 @@ class AssignProject(View):
                 message = "{} is already assigned in the {}.".format(emp, projects[0])
                 message += "\nDeveloper can work on a one project at a time."
             context['message'] = message
+        # if employee is Team lead
         elif emp.designation == 'TEAMLEAD':
+            # validation
             if working_proj.count() < 2 and len(project_req) == 2 - working_proj.count():
                 for proj in projects:
                     emp.projects.add(proj)
@@ -121,8 +138,9 @@ class AssignProject(View):
             else:
                 message = "{} can only work in 2 projects at a time.".format(emp)
             context['message'] = message
+        # if employee is project manager
         elif emp.designation == 'PROJECTMANAGER':
-            import pdb; pdb.set_trace()
+            # validation
             if working_proj.count() < 3 and len(project_req) == 3 - working_proj.count():
                 for proj in projects:
                     emp.projects.add(proj)
@@ -132,11 +150,15 @@ class AssignProject(View):
                 message = "{} can only work in the the 3 projects at a time.".format(emp)
             context['message'] = message
         else:
+            # if staff or superuser
             context['message'] = "Please assign a role to employee first."
         return render(request, 'projects/index.html', context)
 
 
 def login_(request, **kwargs):
+    '''
+    Login functionality.
+    '''
     if request.method == 'POST':
         username = request.POST.get('username')
         password = request.POST.get('password')
@@ -157,6 +179,9 @@ def login_(request, **kwargs):
 
 @login_required
 def register(request):
+    '''
+    Register functionality.
+    '''
     registered = False
     if request.method == 'POST':
         user_form = EmployeeRegisterationForm(data=request.POST)
@@ -180,6 +205,35 @@ def register(request):
 
 @login_required
 def logout_(request):
+    '''
+    Logout functionality.
+    '''
     print(request.user)
     logout(request)
     return HttpResponse("Thank You!!!<br><a href='/'>Login in another Account.</a>")
+
+
+@method_decorator(login_required, name='dispatch')
+class QuerysetView(View):
+    def get(self, request, **kwargs):
+        '''
+        Queryset get page with options.
+        '''
+        qs_no = kwargs.get('qs_no')
+        context = {'qs': True}
+        if qs_no == 1:
+            # over running projects today date including
+            over_running_projects = Project.objects.filter(end_date__lte=timezone.now().date(), status='INPROGRESS')
+            context['over_projects'] = over_running_projects
+            context['qs_data'] = 1
+        elif qs_no == 2:
+            # employees working on different projects with sum of projects
+            emp_on_diff_proj = Employee.objects.filter(is_active=True).values('username').annotate(Sum('projects'))
+            context['emp_proj_no'] = emp_on_diff_proj
+            context['qs_data'] = 2
+        else:
+            # free employees
+            free_emp = Employee.objects.filter(projects=None)
+            context['free_emp'] = free_emp
+            context['qs_data'] = 3
+        return render(request, 'projects/index.html', context)
