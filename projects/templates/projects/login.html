@@ -1,0 +1,31 @@
+{% extends 'projects/base.html' %}
+
+{% block css %}
+{% endblock %}
+
+
+{% block content %}
+<div class="container">
+    <div class="jumbotron">
+      <h1>Login here :</h1>
+<form method="post" action="{% url 'projects:login' %}">
+          {% csrf_token %}
+          {# A more "HTML" way of creating the login form#}
+          <label for="username">Username:</label>
+          <input type="text" name="username" placeholder="Username">
+<label for="password">Password:</label>
+          <input type="password" name="password" placeholder="Password">
+<input type="submit" name="" value="Login" class="btn btn-default btn-md">
+</form>
+</div>
+</div>
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+  $(document).ready(function() {
+    $(".datepicker").datepicker();
+  });
+  </script>
+{% endblock %}
